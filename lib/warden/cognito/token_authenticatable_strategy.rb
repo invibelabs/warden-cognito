@@ -21,6 +21,10 @@ module Warden
         false
       end
 
+      def store?
+        false
+      end
+
       def authenticate!
         user = local_user || UserNotFoundCallback.call(cognito_user, token_decoder.pool_identifier)
 
