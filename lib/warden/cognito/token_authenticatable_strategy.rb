@@ -7,7 +7,6 @@ module Warden
       METHOD = 'Bearer'.freeze
 
       attr_reader :helper
-      attr_accessor :token_decoder
 
       def initialize(env, scope = nil)
         super
@@ -44,7 +43,7 @@ module Warden
         result = CognitoClient.scope(pool_identifier).exchange_token(refresh_token, username).authentication_result
         fail(:unknown_error) unless result
 
-        self.token_decoder = token_decoder(result.access_token)
+        @token_decoder = TokenDecoder.new(result.access_token, pool_identifier)
         cookies['AccessToken'] = result.access_token
         authenticate!
       rescue Aws::CognitoIdentityProvider::Errors::ServiceError
