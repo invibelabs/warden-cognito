@@ -10,7 +10,7 @@ RSpec.describe Warden::Cognito::TokenAuthenticatableStrategy do
   let(:headers) { authorization_header }
   let(:cookies) { "AccessToken=#{jwt_token}" }
   let(:path) { '/v1/resource' }
-  let(:env) { Rack::MockRequest.env_for(path, method: 'GET') }
+  let(:env) { Rack::MockRequest.env_for(path, method: 'GET').merge(headers) }
   let(:issuer) { "https://cognito-idp.#{region}.amazonaws.com/#{pool_id}" }
   let(:decoded_token) do
     [
@@ -115,8 +115,9 @@ RSpec.describe Warden::Cognito::TokenAuthenticatableStrategy do
     context 'with an expired token' do
       before { allow(JWT).to receive(:decode).with(jwt_token, nil, true, any_args).and_raise(JWT::ExpiredSignature) }
 
-      it 'fails and halts all authentication strategies' do
-        expect(strategy).to receive(:fail!).with(:token_expired)
+      it 'attempts to refresh the token' do
+        expect(strategy).to receive(:try_refresh)
+        strategy.valid?
         strategy.authenticate!
       end
     end
@@ -129,6 +130,7 @@ RSpec.describe Warden::Cognito::TokenAuthenticatableStrategy do
           expect(config.user_repository).to receive(:find_by_cognito_attribute).with(local_identifier,
                                                                                      pool_identifier).and_call_original
           expect(strategy).to receive(:success!).with(user)
+          strategy.valid?
           strategy.authenticate!
         end
       end
@@ -141,6 +143,7 @@ RSpec.describe Warden::Cognito::TokenAuthenticatableStrategy do
         it 'calls the `after_local_user_not_found` callback' do
           expect(config.after_local_user_not_found).to receive(:call).with(cognito_user,
                                                                            pool_identifier).and_call_original
+          strategy.valid?
           strategy.authenticate!
         end
 
@@ -151,6 +154,7 @@ RSpec.describe Warden::Cognito::TokenAuthenticatableStrategy do
 
           it 'fails! with :unknown_user' do
             expect(strategy).to receive(:fail!).with(:unknown_user)
+            strategy.valid?
             strategy.authenticate!
           end
         end
