@@ -58,12 +58,6 @@ module Warden
         LocalUserMapper.find token_decoder
       end
 
-      def self.token_decoder=(passed_token = nil)
-        t = passed_token || token
-
-        @token_decoder = TokenDecoder.new(t, pool_identifier)
-      end
-
       def token_decoder(passed_token = nil)
         t = passed_token || token
 
