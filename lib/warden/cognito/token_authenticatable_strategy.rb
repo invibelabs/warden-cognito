@@ -14,10 +14,17 @@ module Warden
       end
 
       def valid?
-        token_decoder.validate!
+        puts 'in valid?'
+        puts token_decoder.inspect
+        res = token_decoder.validate!
+        puts res
+        res
       rescue ::JWT::ExpiredSignature
         true
-      rescue StandardError
+      rescue StandardError => e
+        puts 'valid? error'
+        puts e
+        puts e.inspect
         false
       end
 
@@ -27,7 +34,7 @@ module Warden
         fail!(:unknown_user) unless user.present?
         success!(user)
       rescue ::JWT::ExpiredSignature
-        try_refresh
+        fail!(:token_expired)
       rescue StandardError
         fail(:unknown_error)
       end
@@ -38,18 +45,6 @@ module Warden
 
       private
 
-      def try_refresh
-        username = ::JWT.decode(token, nil, false).first['username']
-        result = CognitoClient.scope(pool_identifier).exchange_token(refresh_token, username).authentication_result
-        fail(:unknown_error) unless result
-
-        @token_decoder = TokenDecoder.new(result.access_token, pool_identifier)
-        cookies['AccessToken'] = result.access_token
-        authenticate!
-      rescue Aws::CognitoIdentityProvider::Errors::ServiceError
-        fail!(:token_expired)
-      end
-
       def cognito_user
         token_decoder.cognito_user
       end
@@ -58,10 +53,8 @@ module Warden
         LocalUserMapper.find token_decoder
       end
 
-      def token_decoder(passed_token = nil)
-        t = passed_token || token
-
-        @token_decoder ||= TokenDecoder.new(t, pool_identifier)
+      def token_decoder
+        @token_decoder ||= RefreshableTokenDecoder.new(token, refresh_token, pool_identifier)
       end
 
       def pool_identifier

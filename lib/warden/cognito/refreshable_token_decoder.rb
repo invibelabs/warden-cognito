@@ -1,0 +1,99 @@
+module Warden
+  module Cognito
+    class RefreshableTokenDecoder
+      attr_reader :jwk_loader, :token, :refresh_token
+
+      def initialize(token, refresh_token, pool_identifier = nil)
+        @token = token
+        @refresh_token = refresh_token
+        @jwk_loader = find_loader(pool_identifier)
+      end
+
+      def validate!
+        puts 'validate!'
+        res = decoded_token.present?
+        puts res
+        puts decoded_token.inspect
+        res
+      end
+
+      def sub
+        decoded_token.first['sub']
+      end
+
+      def decoded_token
+        puts 'entering decoded token'
+        @decoded_token ||= decode_token
+      rescue ::JWT::ExpiredSignature
+        puts 'in rescue'
+        try_refresh
+      end
+
+      def cognito_user
+        @cognito_user ||= cognito_client.fetch(token)
+      end
+
+      def user_attribute(attribute_name)
+        token_attribute(attribute_name).presence || cognito_user_attribute(attribute_name)
+      end
+
+      def pool_identifier
+        jwk_loader.pool_identifier
+      end
+
+      private
+
+      def cognito_client
+        @cognito_client ||= CognitoClient.scope(pool_identifier)
+      end
+
+      def try_refresh
+        puts 'try refresh'
+        username = ::JWT.decode(token, nil, false).first['username']
+        access_token = cognito_client.exchange_token(refresh_token, username)
+                                     .authentication_result
+                                     .access_token
+
+        puts access_token
+
+        raise ::JWT::ExpiredSignature unless access_token
+
+        cookies['AccessToken'] = result.access_token
+        @token = access_token
+        @decoded_token = decode_token
+      end
+
+      def decode_token
+        ::JWT.decode(
+          token,
+          nil,
+          true,
+          iss: jwk_loader.jwt_issuer,
+          verify_iss: true,
+          algorithms: ['RS256'], jwks: jwk_loader
+        )
+      end
+
+      def token_attribute(attribute_name)
+        decoded_token.first[attribute_name] if decoded_token.first.key? attribute_name
+      end
+
+      def cognito_user_attribute(attribute_name)
+        cognito_user.user_attributes.detect do |attribute|
+          attribute.name == attribute_name
+        end&.value
+      end
+
+      def find_loader(pool_identifier)
+        if pool_identifier.present?
+          return JwkLoader.new.tap do |loader|
+            loader.user_pool = pool_identifier
+          end
+        end
+        JwkLoader.pool_iterator.detect(JwkLoader.invalid_issuer_error) do |loader|
+          loader.issued? token
+        end
+      end
+    end
+  end
+end
