@@ -54,13 +54,11 @@ module Warden
                                      .authentication_result
                                      .access_token
 
-        puts access_token
-
-        raise ::JWT::ExpiredSignature unless access_token
-
-        cookies['AccessToken'] = result.access_token
+        set_cookie('AccessToken', access_token)
         @token = access_token
         @decoded_token = decode_token
+      rescue Aws::CognitoIdentityProvider::Errors::ExpiredCodeException
+        raise ::JWT::ExpiredSignature
       end
 
       def decode_token
@@ -93,6 +91,10 @@ module Warden
         JwkLoader.pool_iterator.detect(JwkLoader.invalid_issuer_error) do |loader|
           loader.issued? token
         end
+      end
+
+      def set_cookie(key, value)
+        cookies[key] = value
       end
     end
   end
