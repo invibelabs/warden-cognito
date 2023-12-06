@@ -7,6 +7,7 @@ module Warden
       METHOD = 'Bearer'.freeze
 
       attr_reader :helper
+      attr_accessor :token_decoder
 
       def initialize(env, scope = nil)
         super
@@ -14,10 +15,11 @@ module Warden
       end
 
       def valid?
+        self.token_decoder = build_token_decoder
         token_decoder.validate!
       rescue ::JWT::ExpiredSignature
         true
-      rescue StandardError
+      rescue StandardError => e
         false
       end
 
@@ -26,13 +28,29 @@ module Warden
 
         fail!(:unknown_user) unless user.present?
         success!(user)
-      rescue ::JWT::ExpiredSignature
-        fail!(:token_expired)
+      rescue ::JWT::ExpiredSignature => e
+        try_refresh
       rescue StandardError
         fail(:unknown_error)
       end
 
+      def store?
+        false
+      end
+
       private
+
+      def try_refresh
+        username = ::JWT.decode(token, nil, false).first['username']
+        result = CognitoClient.scope(pool_identifier).exchange_token(refresh_token, username).authentication_result
+        fail(:unknown_error) unless result
+
+        self.token_decoder = build_token_decoder(result.access_token)
+        cookies['AccessToken'] = result.access_token
+        authenticate!
+      rescue Aws::CognitoIdentityProvider::Errors::ServiceError
+        fail!(:token_expired)
+      end
 
       def cognito_user
         token_decoder.cognito_user
@@ -42,8 +60,10 @@ module Warden
         LocalUserMapper.find token_decoder
       end
 
-      def token_decoder
-        @token_decoder ||= TokenDecoder.new(token, pool_identifier)
+      def build_token_decoder(passed_token = nil)
+        t = passed_token || token
+
+        TokenDecoder.new(t, pool_identifier)
       end
 
       def pool_identifier
@@ -54,15 +74,20 @@ module Warden
         @token ||= extract_token
       end
 
-      def extract_token
-        return nil unless authorization_header
-
-        method, token = authorization_header.split
-        method == METHOD ? token : nil
+      def refresh_token
+        @refresh_token ||= extract_refresh_token
       end
 
-      def authorization_header
-        env['HTTP_AUTHORIZATION']
+      def extract_token
+        cookies['AccessToken'].first
+      end
+
+      def extract_refresh_token
+        cookies['RefreshToken'].first
+      end
+
+      def cookies
+        @cookies ||= CGI::Cookie.parse(env['HTTP_COOKIE'])
       end
     end
   end

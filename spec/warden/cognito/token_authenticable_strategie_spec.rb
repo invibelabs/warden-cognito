@@ -8,8 +8,9 @@ RSpec.describe Warden::Cognito::TokenAuthenticatableStrategy do
   let(:jwt_token) { 'FakeJwtToken' }
   let(:authorization_header) { { 'HTTP_AUTHORIZATION' => "Bearer #{jwt_token}" } }
   let(:headers) { authorization_header }
+  let(:cookies) { "AccessToken=#{jwt_token}" }
   let(:path) { '/v1/resource' }
-  let(:env) { Rack::MockRequest.env_for(path, method: 'GET').merge(headers) }
+  let(:env) { Rack::MockRequest.env_for(path, method: 'GET') }
   let(:issuer) { "https://cognito-idp.#{region}.amazonaws.com/#{pool_id}" }
   let(:decoded_token) do
     [
@@ -22,7 +23,10 @@ RSpec.describe Warden::Cognito::TokenAuthenticatableStrategy do
 
   let(:client) { double 'Client' }
 
-  subject(:strategy) { described_class.new(env) }
+  subject(:strategy) do
+    env['HTTP_COOKIE'] = cookies
+    described_class.new(env)
+  end
 
   before do
     allow(Aws::CognitoIdentityProvider::Client).to receive(:new).and_return client
@@ -31,7 +35,7 @@ RSpec.describe Warden::Cognito::TokenAuthenticatableStrategy do
   end
 
   describe '.valid?' do
-    it 'grab the token from the Authorization header' do
+    it 'grab the token from the cookie' do
       expect(JWT).to receive(:decode).with(jwt_token, nil, true, any_args)
       strategy.valid?
     end
