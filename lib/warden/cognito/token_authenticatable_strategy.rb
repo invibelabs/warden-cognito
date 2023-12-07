@@ -54,7 +54,9 @@ module Warden
       end
 
       def token_decoder
-        @token_decoder ||= RefreshableTokenDecoder.new(token, refresh_token, pool_identifier)
+        cookie_setter = ->(key, value) { cookies[key] = value }
+
+        @token_decoder ||= RefreshableTokenDecoder.new(token, refresh_token, cookie_setter, pool_identifier)
       end
 
       def pool_identifier

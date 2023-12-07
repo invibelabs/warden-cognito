@@ -1,11 +1,12 @@
 module Warden
   module Cognito
     class RefreshableTokenDecoder
-      attr_reader :jwk_loader, :token, :refresh_token
+      attr_reader :jwk_loader, :token, :refresh_token, :cookie_setter
 
-      def initialize(token, refresh_token, pool_identifier = nil)
+      def initialize(token, refresh_token, cookie_setter, pool_identifier = nil)
         @token = token
         @refresh_token = refresh_token
+        @cookie_setter = cookie_setter
         @jwk_loader = find_loader(pool_identifier)
       end
 
@@ -54,7 +55,7 @@ module Warden
                                      .authentication_result
                                      .access_token
 
-        set_cookie('AccessToken', access_token)
+        cookie_setter.call('AccessToken', access_token)
         @token = access_token
         @decoded_token = decode_token
       rescue Aws::CognitoIdentityProvider::Errors::ExpiredCodeException
