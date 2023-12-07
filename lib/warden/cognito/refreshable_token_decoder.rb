@@ -93,10 +93,6 @@ module Warden
           loader.issued? token
         end
       end
-
-      def set_cookie(key, value)
-        cookies[key] = value
-      end
     end
   end
 end

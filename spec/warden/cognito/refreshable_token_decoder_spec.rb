@@ -24,7 +24,7 @@ RSpec.describe Warden::Cognito::RefreshableTokenDecoder do
   let(:jwt_token) { 'FakeJwtToken' }
   let(:refresh_token) { 'FakeRefreshToken' }
 
-  subject(:decoder) { described_class.new(jwt_token, refresh_token, pool_identifier_passed) }
+  subject(:decoder) { described_class.new(jwt_token, refresh_token, -> {}, pool_identifier_passed) }
 
   describe '#new' do
     context 'with a pool identifier specified' do
@@ -89,7 +89,6 @@ RSpec.describe Warden::Cognito::RefreshableTokenDecoder do
           allow(JWT).to receive(:decode).with(jwt_token, nil, false).and_return decoded_token
           allow(client).to receive(:exchange_token)
             .and_return(exchange_token_response)
-          allow(decoder).to receive(:set_cookie)
           allow(JWT).to receive(:decode).with(jwt_token, any_args).and_return(decoded_token)
         end
 
