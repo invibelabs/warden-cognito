@@ -14,17 +14,10 @@ module Warden
       end
 
       def valid?
-        puts 'in valid?'
-        puts token_decoder.inspect
-        res = token_decoder.validate!
-        puts res
-        res
+        token_decoder.validate!
       rescue ::JWT::ExpiredSignature
         true
       rescue StandardError => e
-        puts 'valid? error'
-        puts e
-        puts e.inspect
         false
       end
 
