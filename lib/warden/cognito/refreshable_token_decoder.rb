@@ -11,11 +11,7 @@ module Warden
       end
 
       def validate!
-        puts 'validate!'
-        res = decoded_token.present?
-        puts res
-        puts decoded_token.inspect
-        res
+        decoded_token.present?
       end
 
       def sub
@@ -23,10 +19,8 @@ module Warden
       end
 
       def decoded_token
-        puts 'entering decoded token'
         @decoded_token ||= decode_token
       rescue ::JWT::ExpiredSignature
-        puts 'in rescue'
         try_refresh
       end
 
@@ -49,7 +43,6 @@ module Warden
       end
 
       def try_refresh
-        puts 'try refresh'
         username = ::JWT.decode(token, nil, false).first['username']
         access_token = cognito_client.exchange_token(refresh_token, username)
                                      .authentication_result
