@@ -43,7 +43,10 @@ module Warden
       end
 
       def try_refresh
+        raise ::JWT::ExpiredSignature unless refresh_token
+
         username = ::JWT.decode(token, nil, false).first['username']
+
         access_token = cognito_client.exchange_token(refresh_token, username)
                                      .authentication_result
                                      .access_token

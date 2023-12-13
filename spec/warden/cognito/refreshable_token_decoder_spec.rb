@@ -110,6 +110,14 @@ RSpec.describe Warden::Cognito::RefreshableTokenDecoder do
           expect { decoder.validate! }.to raise_exception JWT::ExpiredSignature
         end
       end
+
+      context 'with a nil refresh token' do
+        let(:refresh_token) { nil }
+
+        it 'raises an ExpiredToken error' do
+          expect { decoder.validate! }.to raise_exception JWT::ExpiredSignature
+        end
+      end
     end
   end
 end
