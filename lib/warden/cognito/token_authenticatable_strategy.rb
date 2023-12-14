@@ -17,7 +17,7 @@ module Warden
         token_decoder.validate!
       rescue ::JWT::ExpiredSignature
         true
-      rescue StandardError => e
+      rescue StandardError
         false
       end
 
@@ -65,11 +65,22 @@ module Warden
       end
 
       def extract_token
-        cookies['AccessToken'].first
+        cookies['AccessToken'].first || bearer_header
       end
 
       def extract_refresh_token
         cookies['RefreshToken'].first
+      end
+
+      def bearer_header
+        return nil unless authorization_header
+
+        method, token = authorization_header.split
+        method == METHOD ? token : nil
+      end
+
+      def authorization_header
+        env['HTTP_AUTHORIZATION']
       end
 
       def cookies
